@@ -1,0 +1,212 @@
+# Node.js & Express Final Project Assignment
+## Authentication, Users CRUD, Blog Relations & Joi Validation using MVC
+
+### Objective
+Build a RESTful API for a Blog System & User Management using Node.js, Express, MongoDB (Mongoose), JWT Authentication, and Joi Validation.
+
+The project must follow the MVC (Model–View–Controller) architecture.
+
+---
+
+### Allowed Packages
+You are allowed to use:
+- `express`
+- `mongoose`
+- `bcrypt` / `bcryptjs`
+- `jsonwebtoken`
+- `joi`
+- `dotenv`
+- `nodemon`
+- `multer`
+- `cors`
+- `helmet`
+- `express-rate-limit`
+
+Do **NOT** use any other external package.
+
+---
+
+### 1. Project Structure
+Your project should follow this structure:
+
+```
+project-root/
+├── config/
+│ └── db.js
+├── controllers/
+│ ├── auth.controller.js
+│ ├── user.controller.js
+│ ├── post.controller.js
+│ └── comment.controller.js
+├── middlewares/
+│ ├── auth.middleware.js
+│ ├── validate.middleware.js
+│ ├── error.middleware.js
+│ └── upload.middleware.js
+├── models/
+│ ├── User.model.js
+│ ├── Post.model.js
+│ └── Comment.model.js
+├── routes/
+│ ├── auth.routes.js
+│ ├── user.routes.js
+│ ├── post.routes.js
+│ └── comment.routes.js
+├── validations/
+│ ├── auth.validation.js
+│ ├── user.validation.js
+│ ├── post.validation.js
+│ └── comment.validation.js
+├── utils/
+│ ├── AppError.js
+│ └── asyncWrapper.js
+├── uploads/
+├── .env
+├── app.js
+└── server.js
+```
+
+---
+
+### 2. Database Models & Relations
+
+#### User Model (`models/User.model.js`)
+Create a User model using Mongoose.
+
+The user schema should contain:
+- `name`: String (Required, trimmed)
+- `email`: String (Required, unique, lowercase)
+- `password`: String (Required, min 6 characters)
+- `role`: String (Enum: `['user', 'admin']`, default: `'user'`)
+- `avatar`: String (Optional avatar image path)
+- Timestamps enabled (`{ timestamps: true }`)
+
+#### Post Model (`models/Post.model.js`)
+Create a Post model with a reference to the User model (**One-to-Many Relation**).
+
+The post schema should contain:
+- `title`: String (Required, trimmed)
+- `content`: String (Required)
+- `author`: Mongoose `ObjectId` referencing `User` (Required)
+- `category`: String (Required)
+- `tags`: Array of Strings
+- `coverImage`: String (Optional)
+- `isPublished`: Boolean (Default: `true`)
+- Timestamps enabled (`{ timestamps: true }`)
+
+#### Comment Model (`models/Comment.model.js`)
+Create a Comment model with references to User and Post models.
+
+The comment schema should contain:
+- `text`: String (Required)
+- `user`: Mongoose `ObjectId` referencing `User` (Required)
+- `post`: Mongoose `ObjectId` referencing `Post` (Required)
+- Timestamps enabled (`{ timestamps: true }`)
+
+---
+
+### 3. Request Validation Layer (Joi)
+Create a validation middleware `middlewares/validate.middleware.js` that validates incoming requests (`req.body`, `req.params`, or `req.query`) using Joi schemas.
+
+Requirements:
+- **Register Schema:** `name` (required, min 3), `email` (required, valid email), `password` (required, min 6).
+- **Login Schema:** `email` (required, valid email), `password` (required).
+- **Post Schema:** `title` (required, min 5), `content` (required, min 10), `category` (required).
+- **Comment Schema:** `text` (required, min 1).
+
+If validation fails, return `400 Bad Request` with error details.
+
+---
+
+### 4. Authentication & Authorization
+
+#### Authentication Middleware (`middlewares/auth.middleware.js`)
+- Read the `Authorization` header (`Bearer TOKEN`).
+- Verify token using `jsonwebtoken`.
+- Attach authenticated user payload to `req.user`.
+- Return `401 Unauthorized` if token is missing or invalid.
+
+#### Role Authorization (`middlewares/role.middleware.js`)
+- Check `req.user.role`.
+- Return `403 Forbidden` if user is not authorized (e.g. non-admin attempting admin endpoints).
+
+#### Resource Ownership Check
+- Ensure that updating or deleting a Post or Comment can only be performed by its author/owner or an Admin.
+
+---
+
+### 5. API Endpoints
+
+#### Authentication Routes (`/api/auth`)
+- `POST /api/auth/register` — Register a new user (Validated by Joi).
+- `POST /api/auth/login` — Login user & return JWT token (Validated by Joi, Rate-limited).
+
+#### User Routes (`/api/users`)
+- `GET /api/users` — Get all users (Admin only, passwords excluded).
+- `GET /api/users/:id` — Get single user by ID (Auth required).
+- `PUT /api/users/:id` — Update user profile / avatar (Auth + Owner/Admin).
+- `DELETE /api/users/:id` — Delete user (Admin only).
+
+#### Blog Post Routes (`/api/posts`)
+- `POST /api/posts` — Create a new post (Auth required, Joi validated, supports image upload).
+- `GET /api/posts` — Get all posts (Public, supports pagination, search, and category filter).
+- `GET /api/posts/:id` — Get single post with populated author and comments (Public).
+- `PUT /api/posts/:id` — Update post (Auth required, Owner/Admin only, Joi validated).
+- `DELETE /api/posts/:id` — Delete post (Auth required, Owner/Admin only).
+
+#### Comment Routes (`/api/posts/:postId/comments` & `/api/comments`)
+- `POST /api/posts/:postId/comments` — Add comment to a post (Auth required, Joi validated).
+- `DELETE /api/comments/:id` — Delete comment (Auth required, Owner/Admin only).
+
+---
+
+### 6. Advanced Features (Pagination, Search & Filtering)
+
+Endpoint: `GET /api/posts`
+- **Pagination:** `?page=1&limit=10`
+- **Search:** `?search=keyword` (searches title and content)
+- **Filtering:** `?category=backend` or `?author=USER_ID`
+- **Sorting:** `?sort=-createdAt`
+
+---
+
+### 7. API Requirements & HTTP Status Codes
+
+| Situation | Status |
+| :--- | :--- |
+| Successful GET / PUT / DELETE | 200 |
+| Successful Resource Creation (POST) | 201 |
+| Invalid request / Validation error | 400 |
+| Not authenticated | 401 |
+| Not authorized / Forbidden | 403 |
+| Resource not found | 404 |
+| Rate limit exceeded | 429 |
+| Server error | 500 |
+
+---
+
+### 8. Error Handling
+Controllers must properly handle errors using a centralized error handling middleware (`middlewares/error.middleware.js`).
+
+Do not expose sensitive information such as:
+- Passwords
+- JWT secret
+- Database connection details
+
+---
+
+### 9. MVC Responsibilities
+
+#### Model
+Responsible for database schema, Mongoose models, and relationships.
+- *Examples:* `models/User.model.js`, `models/Post.model.js`, `models/Comment.model.js`
+
+#### Controller
+Responsible for business logic, processing requests, calling services/models, and returning HTTP responses.
+- *Examples:* `controllers/auth.controller.js`, `controllers/user.controller.js`, `controllers/post.controller.js`
+
+#### Routes
+Responsible only for mapping HTTP endpoints to middleware and controllers.
+- *Examples:* `routes/auth.routes.js`, `routes/post.routes.js`
+
+Do not put database queries directly inside routes.
