@@ -4,6 +4,7 @@ const Post = require("../models/Post.model");
 const AppError = require("../utils/AppError");
 const asyncWrapper = require("../utils/asyncWrapper");
 
+// POST /api/posts/:postId/comments
 const addComment = asyncWrapper(async (req, res) => {
   const { postId } = req.params;
   const { text } = req.body;
@@ -13,7 +14,6 @@ const addComment = asyncWrapper(async (req, res) => {
   }
 
   const post = await Post.findById(postId);
-
   if (!post) {
     throw new AppError("Post not found", 404);
   }
@@ -32,22 +32,15 @@ const addComment = asyncWrapper(async (req, res) => {
   });
 });
 
+// DELETE /api/comments/:id  (top-level route, per the endpoint ownership table)
 const deleteComment = asyncWrapper(async (req, res) => {
-  const { postId, commentId } = req.params;
+  const { id } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(postId)) {
-    throw new AppError("Invalid post ID", 400);
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(commentId)) {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new AppError("Invalid comment ID", 400);
   }
 
-  const comment = await Comment.findOne({
-    _id: commentId,
-    post: postId,
-  });
-
+  const comment = await Comment.findById(id);
   if (!comment) {
     throw new AppError("Comment not found", 404);
   }
